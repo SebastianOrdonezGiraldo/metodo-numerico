@@ -1,5 +1,17 @@
+"""
+Utilidades para el cálculo y comparación de soluciones analíticas.
+
+Este módulo proporciona funciones para calcular soluciones analíticas
+de ecuaciones diferenciales ordinarias y compararlas con soluciones numéricas.
+
+Funciones:
+    calcular_solucion_analitica: Calcula la solución analítica de una EDO.
+    comparar_soluciones: Compara una solución numérica con su solución analítica.
+"""
+
 import numpy as np
 import sympy as sp
+from scipy.integrate import odeint
 
 class AnalyticSolution:
     """
@@ -108,4 +120,81 @@ class AnalyticSolution:
             'max_error': max_error,
             'mean_error': mean_error,
             'rms_error': rms_error
-        } 
+        }
+
+def calcular_solucion_analitica(funcion, t0, y0, t_values):
+    """
+    Calcula la solución analítica de una EDO.
+    
+    Args:
+        funcion (str): La función que define la EDO en formato string.
+        t0 (float): Valor inicial de t.
+        y0 (float): Valor inicial de y.
+        t_values (numpy.ndarray): Valores de t donde calcular la solución.
+        
+    Returns:
+        numpy.ndarray: Valores de la solución analítica en los puntos t_values.
+        
+    Raises:
+        ValueError: Si no se puede calcular la solución analítica.
+    """
+    try:
+        # Convertir la función a una función evaluable
+        t = sp.Symbol('t')
+        y = sp.Symbol('y')
+        f = sp.sympify(funcion)
+        f_lambda = sp.lambdify((t, y), f, 'numpy')
+        
+        # Definir la función para odeint
+        def dydt(y, t):
+            return f_lambda(t, y)
+        
+        # Calcular la solución
+        y_values = odeint(dydt, y0, t_values)
+        return y_values.flatten()
+        
+    except Exception as e:
+        raise ValueError(f"No se pudo calcular la solución analítica: {str(e)}")
+
+def comparar_soluciones(t_values, y_numerica, y_analitica, titulo="Comparación de Soluciones"):
+    """
+    Compara una solución numérica con su solución analítica.
+    
+    Args:
+        t_values (numpy.ndarray): Valores de la variable independiente t.
+        y_numerica (numpy.ndarray): Valores de la solución numérica.
+        y_analitica (numpy.ndarray): Valores de la solución analítica.
+        titulo (str, optional): Título de la gráfica.
+        
+    Returns:
+        tuple: (fig, ax) donde:
+            - fig es la figura de matplotlib
+            - ax es el eje de la gráfica
+    """
+    import matplotlib.pyplot as plt
+    
+    # Crear figura y eje
+    fig, ax = plt.subplots(figsize=(8, 6))
+    
+    # Graficar ambas soluciones
+    ax.plot(t_values, y_numerica, 'b-', label='Solución numérica')
+    ax.plot(t_values, y_analitica, 'r--', label='Solución analítica')
+    
+    # Personalizar la gráfica
+    ax.set_title(titulo, fontsize=12, pad=15)
+    ax.set_xlabel('t', fontsize=10)
+    ax.set_ylabel('y', fontsize=10)
+    ax.grid(True, linestyle='--', alpha=0.7)
+    ax.legend(loc='best')
+    
+    # Calcular y mostrar el error
+    error = np.abs(y_numerica - y_analitica)
+    error_max = np.max(error)
+    error_medio = np.mean(error)
+    
+    # Agregar información del error
+    ax.text(0.02, 0.98, f'Error máximo: {error_max:.2e}\nError medio: {error_medio:.2e}',
+            transform=ax.transAxes, verticalalignment='top',
+            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    
+    return fig, ax 

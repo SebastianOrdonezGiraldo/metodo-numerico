@@ -1,3 +1,20 @@
+"""
+Aplicación principal para la resolución de Ecuaciones Diferenciales Ordinarias (EDOs).
+
+Este módulo implementa la interfaz gráfica de usuario (GUI) para el solucionador de EDOs,
+utilizando Tkinter como framework de GUI. La aplicación permite resolver EDOs de primer orden
+usando diferentes métodos numéricos y visualizar los resultados tanto en forma tabular como gráfica.
+
+Clases principales:
+    EDOSolverApp: Clase principal que implementa la interfaz gráfica y la lógica de la aplicación.
+
+Dependencias:
+    - tkinter: Para la interfaz gráfica
+    - numpy: Para cálculos numéricos
+    - matplotlib: Para visualización de gráficas
+    - sympy: Para manipulación simbólica de expresiones matemáticas
+"""
+
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import numpy as np
@@ -13,7 +30,24 @@ from solvers.heun_solver import HeunSolver
 from solvers.euler_solver import EulerSolver
 
 class EDOSolverApp:
+    """
+    Clase principal que implementa la interfaz gráfica y la lógica de la aplicación.
+    
+    Esta clase maneja toda la interfaz de usuario, incluyendo:
+    - Configuración de la ventana principal
+    - Creación y gestión de widgets
+    - Manejo de eventos
+    - Cálculo y visualización de resultados
+    - Exportación de datos
+    """
+    
     def __init__(self, root):
+        """
+        Inicializa la aplicación.
+        
+        Args:
+            root: La ventana principal de Tkinter
+        """
         self.root = root
         self.root.title("Solucionador de EDOs")
         self.root.geometry("1100x750")
@@ -73,7 +107,12 @@ class EDOSolverApp:
         self.cargar_ejemplo("Crecimiento exponencial")
     
     def configurar_estilo(self):
-        """Configura el estilo de la aplicación"""
+        """
+        Configura el estilo visual de la aplicación.
+        
+        Esta función establece los colores, fuentes y estilos generales
+        de la interfaz gráfica para una mejor experiencia de usuario.
+        """
         # Configurar tema
         style = ttk.Style()
         
@@ -469,6 +508,15 @@ class EDOSolverApp:
             return False
     
     def calcular(self):
+        """
+        Realiza el cálculo de la solución de la EDO.
+        
+        Esta función:
+        1. Valida las entradas del usuario
+        2. Selecciona el método numérico apropiado
+        3. Realiza los cálculos
+        4. Muestra los resultados en la interfaz
+        """
         if not self.validar_entradas():
             return
         
@@ -477,38 +525,34 @@ class EDOSolverApp:
             self.status_label.config(text="Calculando...")
             self.root.update_idletasks()
             
-            # Obtener valores de los campos
-            funcion_str = self.var_funcion.get()
+            # Obtener valores de entrada
+            funcion = self.var_funcion.get()
             t0 = float(self.var_t_inicial.get())
             y0 = float(self.var_y_inicial.get())
             h = float(self.var_paso.get())
             n = int(self.var_num_pasos.get())
             metodo = self.var_metodo.get()
             
-            # Crear el solucionador apropiado
+            # Seleccionar el solucionador apropiado
             if metodo == "heun":
-                solver = HeunSolver()
-                metodo_nombre = "Heun"
-            else:  # metodo == "euler"
-                solver = EulerSolver()
-                metodo_nombre = "Euler"
+                solver = HeunSolver(funcion)
+            elif metodo == "euler":
+                solver = EulerSolver(funcion)
+            else:
+                raise ValueError(f"Método no soportado: {metodo}")
             
             # Calcular solución
-            t_values, y_values = solver.solve(funcion_str, t0, y0, h, n)
+            t_values, y_values = solver.solve(t0, y0, h, n)
             
-            # Mostrar resultados en la tabla
+            # Mostrar resultados
             self.mostrar_resultados(t_values, y_values)
+            self.mostrar_grafica(t_values, y_values, metodo.capitalize())
             
-            # Mostrar gráfica
-            self.mostrar_grafica(t_values, y_values, metodo_nombre)
-            
-            self.log_mensaje(f"Cálculo completado con éxito usando método de {metodo_nombre}: {n} pasos con h={h}")
-            self.status_label.config(text=f"Cálculo completado: {len(t_values)} puntos generados")
+            self.log_mensaje("Cálculo completado exitosamente")
             
         except Exception as e:
-            messagebox.showerror("Error", f"Error al calcular: {str(e)}")
-            self.log_mensaje(f"ERROR: {str(e)}")
-            self.status_label.config(text="Error en el cálculo")
+            self.log_mensaje(f"Error en el cálculo: {str(e)}")
+            messagebox.showerror("Error", f"Error en el cálculo: {str(e)}")
     
     def mostrar_resultados(self, t_values, y_values):
         # Limpiar tabla anterior
@@ -625,6 +669,14 @@ class EDOSolverApp:
         self.log_mensaje("Todos los datos han sido limpiados")
 
 def main():
+    """
+    Función principal que inicia la aplicación.
+    
+    Esta función:
+    1. Crea la ventana principal
+    2. Inicializa la aplicación
+    3. Inicia el bucle principal de eventos
+    """
     root = tk.Tk()
     app = EDOSolverApp(root)
     root.mainloop()

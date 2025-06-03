@@ -1,3 +1,13 @@
+"""
+Gestor de temas visuales para la aplicación.
+
+Este módulo proporciona funciones para manejar los temas visuales de la aplicación,
+incluyendo colores, fuentes y estilos de los widgets.
+
+Clases:
+    ThemeManager: Clase para gestionar los temas visuales de la aplicación.
+"""
+
 import tkinter as tk
 from tkinter import ttk
 import json
@@ -5,7 +15,14 @@ import os
 
 class ThemeManager:
     """
-    Clase para gestionar los temas de la interfaz.
+    Clase para gestionar los temas visuales de la aplicación.
+    
+    Esta clase maneja la configuración de estilos visuales, incluyendo
+    colores, fuentes y estilos de los widgets de la interfaz gráfica.
+    
+    Attributes:
+        themes (dict): Diccionario con los temas disponibles.
+        current_theme (str): Nombre del tema actual.
     """
     
     # Temas predefinidos
@@ -49,6 +66,9 @@ class ThemeManager:
     }
     
     def __init__(self):
+        """
+        Inicializa el gestor de temas.
+        """
         self.current_theme = "light"
         self.custom_themes = {}
         self.load_custom_themes()

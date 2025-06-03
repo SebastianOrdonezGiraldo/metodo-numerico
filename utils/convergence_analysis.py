@@ -1,7 +1,20 @@
+"""
+Utilidades para el análisis de convergencia de métodos numéricos.
+
+Este módulo proporciona funciones para analizar la convergencia de diferentes
+métodos numéricos al resolver ecuaciones diferenciales ordinarias.
+
+Funciones:
+    analizar_convergencia: Analiza la convergencia de un método numérico.
+    calcular_orden_convergencia: Calcula el orden de convergencia de un método.
+    graficar_convergencia: Visualiza los resultados del análisis de convergencia.
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 from solvers import get_solver
 from utils.analytic_solution import AnalyticSolution
+from scipy.stats import linregress
 
 class ConvergenceAnalysis:
     """
@@ -196,3 +209,112 @@ class ConvergenceAnalysis:
         ax.legend()
         
         return ax 
+
+def analizar_convergencia(solver, funcion, t0, y0, h_values, t_final):
+    """
+    Analiza la convergencia de un método numérico para diferentes tamaños de paso.
+    
+    Args:
+        solver: Instancia de un solucionador numérico.
+        funcion (str): La función que define la EDO.
+        t0 (float): Valor inicial de t.
+        y0 (float): Valor inicial de y.
+        h_values (list): Lista de tamaños de paso a probar.
+        t_final (float): Valor final de t para el análisis.
+        
+    Returns:
+        dict: Diccionario con los resultados del análisis:
+            - 'h_values': Lista de tamaños de paso
+            - 'errors': Lista de errores para cada tamaño de paso
+            - 'order': Orden de convergencia estimado
+    """
+    errors = []
+    
+    # Calcular solución de referencia con el paso más pequeño
+    h_ref = min(h_values)
+    n_ref = int((t_final - t0) / h_ref)
+    t_ref, y_ref = solver.solve(t0, y0, h_ref, n_ref)
+    
+    # Calcular errores para cada tamaño de paso
+    for h in h_values:
+        n = int((t_final - t0) / h)
+        t, y = solver.solve(t0, y0, h, n)
+        
+        # Interpolar solución de referencia a los puntos de la solución actual
+        y_ref_interp = np.interp(t, t_ref, y_ref)
+        
+        # Calcular error máximo
+        error = np.max(np.abs(y - y_ref_interp))
+        errors.append(error)
+    
+    # Calcular orden de convergencia
+    order = calcular_orden_convergencia(h_values, errors)
+    
+    return {
+        'h_values': h_values,
+        'errors': errors,
+        'order': order
+    }
+
+def calcular_orden_convergencia(h_values, errors):
+    """
+    Calcula el orden de convergencia de un método numérico.
+    
+    Args:
+        h_values (list): Lista de tamaños de paso.
+        errors (list): Lista de errores correspondientes.
+        
+    Returns:
+        float: Orden de convergencia estimado.
+    """
+    # Convertir a arrays de numpy
+    h = np.array(h_values)
+    e = np.array(errors)
+    
+    # Calcular logaritmos
+    log_h = np.log(h)
+    log_e = np.log(e)
+    
+    # Ajustar línea recta
+    slope, _, _, _, _ = linregress(log_h, log_e)
+    
+    return abs(slope)
+
+def graficar_convergencia(h_values, errors, order, titulo="Análisis de Convergencia"):
+    """
+    Visualiza los resultados del análisis de convergencia.
+    
+    Args:
+        h_values (list): Lista de tamaños de paso.
+        errors (list): Lista de errores correspondientes.
+        order (float): Orden de convergencia estimado.
+        titulo (str, optional): Título de la gráfica.
+        
+    Returns:
+        tuple: (fig, ax) donde:
+            - fig es la figura de matplotlib
+            - ax es el eje de la gráfica
+    """
+    # Crear figura y eje
+    fig, ax = plt.subplots(figsize=(8, 6))
+    
+    # Graficar errores
+    ax.loglog(h_values, errors, 'bo-', label='Error numérico')
+    
+    # Graficar línea de referencia para el orden de convergencia
+    h = np.array(h_values)
+    e = np.array(errors)
+    p = np.polyfit(np.log(h), np.log(e), 1)
+    h_fine = np.logspace(np.log10(min(h)), np.log10(max(h)), 100)
+    e_fine = np.exp(p[0] * np.log(h_fine) + p[1])
+    ax.loglog(h_fine, e_fine, 'r--', 
+             label=f'Orden {order:.2f}')
+    
+    # Personalizar gráfica
+    ax.set_title(titulo, fontsize=12, pad=15)
+    ax.set_xlabel('Tamaño de paso (h)', fontsize=10)
+    ax.set_ylabel('Error máximo', fontsize=10)
+    ax.grid(True, linestyle='--', alpha=0.7)
+    ax.legend(loc='best')
+    
+    return fig, ax 

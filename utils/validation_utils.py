@@ -1,61 +1,107 @@
 """
-Utilidades para la validación de datos de entrada.
-"""
-import sympy as sp
+Utilidades para la validación de entradas en la aplicación.
 
-def validate_function(func_str):
+Este módulo proporciona funciones para validar diferentes tipos de entradas
+en la aplicación, como expresiones matemáticas, valores numéricos y parámetros
+de los métodos numéricos.
+
+Funciones:
+    validar_expresion_matematica: Valida una expresión matemática.
+    validar_numero: Valida un valor numérico.
+    validar_parametros_metodo: Valida los parámetros de un método numérico.
+"""
+
+import sympy as sp
+import re
+
+def validar_expresion_matematica(expresion):
     """
-    Valida que una cadena de texto represente una función válida.
+    Valida una expresión matemática en formato string.
     
     Args:
-        func_str (str): Cadena de texto que representa la función
+        expresion (str): La expresión matemática a validar.
         
     Returns:
-        bool: True si la función es válida
+        bool: True si la expresión es válida, False en caso contrario.
         
     Raises:
-        ValueError: Si la función no es válida
+        ValueError: Si la expresión contiene caracteres no permitidos.
     """
+    # Verificar caracteres permitidos
+    caracteres_permitidos = set('0123456789+-*/()^t y.sin()cos()exp()sqrt()')
+    if not all(c in caracteres_permitidos for c in expresion):
+        raise ValueError("La expresión contiene caracteres no permitidos")
+    
+    # Verificar paréntesis balanceados
+    if expresion.count('(') != expresion.count(')'):
+        raise ValueError("Los paréntesis no están balanceados")
+    
+    # Intentar parsear la expresión
     try:
-        # Definir símbolos
         t = sp.Symbol('t')
         y = sp.Symbol('y')
-        
-        # Intentar parsear la función
-        expr = sp.sympify(func_str)
-        
-        # Verificar que la función dependa de t o y
-        if not (t in expr.free_symbols or y in expr.free_symbols):
-            raise ValueError("La función debe depender de t o y")
-            
+        expr = sp.sympify(expresion)
         return True
-    except Exception as e:
-        raise ValueError(f"Función inválida: {str(e)}")
+    except:
+        raise ValueError("La expresión no es una expresión matemática válida")
 
-def validate_numeric_input(value, min_value=None, max_value=None):
+def validar_numero(valor, min_val=None, max_val=None):
     """
-    Valida que un valor sea numérico y esté dentro de un rango.
+    Valida un valor numérico.
     
     Args:
-        value: Valor a validar
-        min_value: Valor mínimo permitido (opcional)
-        max_value: Valor máximo permitido (opcional)
+        valor (str): El valor a validar.
+        min_val (float, optional): Valor mínimo permitido.
+        max_val (float, optional): Valor máximo permitido.
         
     Returns:
-        float: El valor validado
+        float: El valor numérico validado.
         
     Raises:
-        ValueError: Si el valor no es válido
+        ValueError: Si el valor no es un número válido o está fuera de los límites.
     """
     try:
-        num_value = float(value)
+        num = float(valor)
+    except ValueError:
+        raise ValueError("El valor debe ser un número")
+    
+    if min_val is not None and num < min_val:
+        raise ValueError(f"El valor debe ser mayor o igual a {min_val}")
+    
+    if max_val is not None and num > max_val:
+        raise ValueError(f"El valor debe ser menor o igual a {max_val}")
+    
+    return num
+
+def validar_parametros_metodo(t0, y0, h, n):
+    """
+    Valida los parámetros de un método numérico.
+    
+    Args:
+        t0 (float): Valor inicial de t.
+        y0 (float): Valor inicial de y.
+        h (float): Tamaño del paso.
+        n (int): Número de pasos.
         
-        if min_value is not None and num_value < min_value:
-            raise ValueError(f"El valor debe ser mayor que {min_value}")
-            
-        if max_value is not None and num_value > max_value:
-            raise ValueError(f"El valor debe ser menor que {max_value}")
-            
-        return num_value
-    except ValueError as e:
-        raise ValueError(f"Valor numérico inválido: {str(e)}") 
+    Returns:
+        tuple: (t0, y0, h, n) con los valores validados.
+        
+    Raises:
+        ValueError: Si alguno de los parámetros no es válido.
+    """
+    # Validar valores iniciales
+    t0 = validar_numero(t0)
+    y0 = validar_numero(y0)
+    
+    # Validar tamaño de paso
+    h = validar_numero(h, min_val=0.0001)
+    
+    # Validar número de pasos
+    try:
+        n = int(n)
+        if n <= 0:
+            raise ValueError
+    except ValueError:
+        raise ValueError("El número de pasos debe ser un entero positivo")
+    
+    return t0, y0, h, n 
