@@ -28,6 +28,7 @@ import webbrowser
 
 from solvers.heun_solver import HeunSolver
 from solvers.euler_solver import EulerSolver
+from solvers.rk4_solver import RK4Solver
 
 class EDOSolverApp:
     """
@@ -198,7 +199,7 @@ class EDOSolverApp:
         # Selector de método
         ttk.Label(input_frame, text="Método:").grid(row=0, column=0, sticky=tk.W, pady=8)
         metodo_combo = ttk.Combobox(input_frame, textvariable=self.var_metodo, 
-                                  values=["heun", "euler"], state="readonly", width=10)
+                                  values=["heun", "euler", "rk4"], state="readonly", width=10)
         metodo_combo.grid(row=0, column=1, sticky=tk.W, pady=8, padx=(5, 0))
         
         # Campos de entrada con mejor organización
@@ -538,6 +539,8 @@ class EDOSolverApp:
                 solver = HeunSolver(funcion)
             elif metodo == "euler":
                 solver = EulerSolver(funcion)
+            elif metodo == "rk4":
+                solver = RK4Solver(funcion)
             else:
                 raise ValueError(f"Método no soportado: {metodo}")
             
