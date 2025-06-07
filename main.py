@@ -25,6 +25,9 @@ import csv
 import os
 from PIL import Image, ImageTk
 import webbrowser
+import pandas as pd
+import json
+from datetime import datetime
 
 from solvers.heun_solver import HeunSolver
 from solvers.euler_solver import EulerSolver
@@ -247,7 +250,7 @@ class EDOSolverApp:
         calcular_btn = ttk.Button(btn_frame, text="Calcular", command=self.calcular, style="Accent.TButton", width=12)
         calcular_btn.pack(side=tk.LEFT, padx=5)
         
-        exportar_btn = ttk.Button(btn_frame, text="Exportar a CSV", command=self.exportar_csv, width=15)
+        exportar_btn = ttk.Button(btn_frame, text="Exportar", command=self.exportar_resultados, width=15)
         exportar_btn.pack(side=tk.LEFT, padx=5)
         
         limpiar_btn = ttk.Button(btn_frame, text="Limpiar", command=self.limpiar, width=10)
@@ -613,11 +616,57 @@ class EDOSolverApp:
         toolbar = NavigationToolbar2Tk(canvas, toolbar_frame)
         toolbar.update()
     
-    def exportar_csv(self):
+    def exportar_resultados(self):
+        """Exporta los resultados en diferentes formatos"""
         if not hasattr(self, 'tree') or not self.tree.get_children():
             messagebox.showinfo("Información", "No hay datos para exportar.")
             return
         
+        # Crear menú de exportación
+        menu = tk.Menu(self.root, tearoff=0)
+        menu.add_command(label="Exportar a CSV", command=self.exportar_csv)
+        menu.add_command(label="Exportar a Excel", command=self.exportar_excel)
+        menu.add_command(label="Exportar a JSON", command=self.exportar_json)
+        menu.add_separator()
+        menu.add_command(label="Exportar gráfica", command=self.exportar_grafica)
+        
+        # Mostrar menú
+        try:
+            x = self.root.winfo_pointerx()
+            y = self.root.winfo_pointery()
+            menu.tk_popup(x, y)
+        finally:
+            menu.grab_release()
+    
+    def obtener_datos_exportacion(self):
+        """Obtiene los datos para exportar incluyendo metadatos"""
+        # Obtener datos de la tabla
+        datos = []
+        for item_id in self.tree.get_children():
+            values = self.tree.item(item_id, 'values')
+            datos.append({
+                't': float(values[0]),
+                'y': float(values[1])
+            })
+        
+        # Crear diccionario con metadatos
+        metadatos = {
+            'fecha_exportacion': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'metodo': self.var_metodo.get(),
+            'funcion': self.var_funcion.get(),
+            'parametros': {
+                't_inicial': float(self.var_t_inicial.get()),
+                'y_inicial': float(self.var_y_inicial.get()),
+                'paso': float(self.var_paso.get()),
+                'num_pasos': int(self.var_num_pasos.get())
+            },
+            'resultados': datos
+        }
+        
+        return metadatos
+    
+    def exportar_csv(self):
+        """Exporta los resultados a un archivo CSV"""
         try:
             filename = filedialog.asksaveasfilename(
                 defaultextension=".csv",
@@ -628,13 +677,18 @@ class EDOSolverApp:
             if not filename:
                 return
             
-            with open(filename, 'w', newline='') as csvfile:
-                writer = csv.writer(csvfile)
-                writer.writerow(["t", "y"])  # Encabezados
-                
-                for item_id in self.tree.get_children():
-                    values = self.tree.item(item_id, 'values')
-                    writer.writerow(values)
+            metadatos = self.obtener_datos_exportacion()
+            
+            # Crear DataFrame con los resultados
+            df = pd.DataFrame(metadatos['resultados'])
+            
+            # Agregar metadatos como comentarios al inicio del archivo
+            with open(filename, 'w', newline='') as f:
+                f.write(f"# Método: {metadatos['metodo']}\n")
+                f.write(f"# Función: {metadatos['funcion']}\n")
+                f.write(f"# Fecha: {metadatos['fecha_exportacion']}\n")
+                f.write(f"# Parámetros: t0={metadatos['parametros']['t_inicial']}, y0={metadatos['parametros']['y_inicial']}, h={metadatos['parametros']['paso']}, n={metadatos['parametros']['num_pasos']}\n\n")
+                df.to_csv(f, index=False)
             
             self.log_mensaje(f"Datos exportados a {filename}")
             self.status_label.config(text=f"Datos exportados a {os.path.basename(filename)}")
@@ -644,6 +698,111 @@ class EDOSolverApp:
             messagebox.showerror("Error", f"Error al exportar: {str(e)}")
             self.log_mensaje(f"ERROR en exportación: {str(e)}")
             self.status_label.config(text="Error al exportar")
+    
+    def exportar_excel(self):
+        """Exporta los resultados a un archivo Excel"""
+        try:
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
+                title="Guardar resultados como Excel"
+            )
+            
+            if not filename:
+                return
+            
+            metadatos = self.obtener_datos_exportacion()
+            
+            # Crear DataFrame con los resultados
+            df = pd.DataFrame(metadatos['resultados'])
+            
+            # Crear Excel writer
+            with pd.ExcelWriter(filename, engine='openpyxl') as writer:
+                # Escribir metadatos en la primera hoja
+                pd.DataFrame({
+                    'Parámetro': ['Método', 'Función', 'Fecha', 't inicial', 'y inicial', 'Paso', 'Número de pasos'],
+                    'Valor': [
+                        metadatos['metodo'],
+                        metadatos['funcion'],
+                        metadatos['fecha_exportacion'],
+                        metadatos['parametros']['t_inicial'],
+                        metadatos['parametros']['y_inicial'],
+                        metadatos['parametros']['paso'],
+                        metadatos['parametros']['num_pasos']
+                    ]
+                }).to_excel(writer, sheet_name='Metadatos', index=False)
+                
+                # Escribir resultados en la segunda hoja
+                df.to_excel(writer, sheet_name='Resultados', index=False)
+            
+            self.log_mensaje(f"Datos exportados a {filename}")
+            self.status_label.config(text=f"Datos exportados a {os.path.basename(filename)}")
+            messagebox.showinfo("Éxito", f"Datos exportados correctamente a {filename}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al exportar: {str(e)}")
+            self.log_mensaje(f"ERROR en exportación: {str(e)}")
+            self.status_label.config(text="Error al exportar")
+    
+    def exportar_json(self):
+        """Exporta los resultados a un archivo JSON"""
+        try:
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".json",
+                filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+                title="Guardar resultados como JSON"
+            )
+            
+            if not filename:
+                return
+            
+            metadatos = self.obtener_datos_exportacion()
+            
+            # Guardar en formato JSON
+            with open(filename, 'w') as f:
+                json.dump(metadatos, f, indent=4)
+            
+            self.log_mensaje(f"Datos exportados a {filename}")
+            self.status_label.config(text=f"Datos exportados a {os.path.basename(filename)}")
+            messagebox.showinfo("Éxito", f"Datos exportados correctamente a {filename}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al exportar: {str(e)}")
+            self.log_mensaje(f"ERROR en exportación: {str(e)}")
+            self.status_label.config(text="Error al exportar")
+    
+    def exportar_grafica(self):
+        """Exporta la gráfica actual a un archivo de imagen"""
+        try:
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".png",
+                filetypes=[
+                    ("PNG files", "*.png"),
+                    ("JPEG files", "*.jpg"),
+                    ("PDF files", "*.pdf"),
+                    ("All files", "*.*")
+                ],
+                title="Guardar gráfica como imagen"
+            )
+            
+            if not filename:
+                return
+            
+            # Obtener la figura actual
+            for widget in self.graph_frame.winfo_children():
+                if isinstance(widget, FigureCanvasTkAgg):
+                    fig = widget.figure
+                    fig.savefig(filename, dpi=300, bbox_inches='tight')
+                    break
+            
+            self.log_mensaje(f"Gráfica exportada a {filename}")
+            self.status_label.config(text=f"Gráfica exportada a {os.path.basename(filename)}")
+            messagebox.showinfo("Éxito", f"Gráfica exportada correctamente a {filename}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al exportar la gráfica: {str(e)}")
+            self.log_mensaje(f"ERROR en exportación de gráfica: {str(e)}")
+            self.status_label.config(text="Error al exportar la gráfica")
     
     def limpiar(self):
         # Limpiar campos de entrada
